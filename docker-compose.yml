@@ -1,0 +1,244 @@
+version: "3.8"
+
+services:
+    nginx:
+        build:
+            context: ./docker/nginx
+            dockerfile: Dockerfile
+        ports:
+            - "80:80"
+        depends_on:
+            - api1
+            - api2
+            - api3
+            - api4
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "1"
+                    memory: 512M
+
+    api1: &api-service
+        build:
+            context: .
+            dockerfile: docker/api/Dockerfile
+        environment:
+            - NODE_ENV=production
+            - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/todos?replicaSet=rs0
+            - REDIS_URL=redis://redis:6379
+            - KAFKA_BROKERS=kafka1:9092,kafka2:9092,kafka3:9092
+        depends_on:
+            - mongo1
+            - redis
+            - kafka1
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "1"
+                    memory: 2G
+
+    api2:
+        <<: *api-service
+    api3:
+        <<: *api-service
+    api4:
+        <<: *api-service
+
+    mongo1:
+        image: mongo:6
+        command: ["--replSet", "rs0", "--bind_ip_all"]
+        volumes:
+            - mongo1_data:/data/db
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    mongo2:
+        image: mongo:6
+        command: ["--replSet", "rs0", "--bind_ip_all"]
+        volumes:
+            - mongo2_data:/data/db
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    mongo3:
+        image: mongo:6
+        command: ["--replSet", "rs0", "--bind_ip_all"]
+        volumes:
+            - mongo3_data:/data/db
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    mongo-init:
+        image: mongo:6
+        restart: "no"
+        depends_on:
+            - mongo1
+            - mongo2
+            - mongo3
+        command: >
+            mongosh --host mongo1:27017 --eval '
+            rs.initiate({
+              _id: "rs0",
+              members: [
+                {_id: 0, host: "mongo1:27017"},
+                {_id: 1, host: "mongo2:27017"},
+                {_id: 2, host: "mongo3:27017"}
+              ]
+            })
+            '
+        networks:
+            - todo_net
+
+    redis:
+        image: redis:7-alpine
+        command: redis-server --appendonly yes
+        volumes:
+            - redis_data:/data
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "1"
+                    memory: 2G
+
+    kafka1:
+        image: confluentinc/cp-kafka:7.8.0
+        environment:
+            KAFKA_BROKER_ID: 1
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+        depends_on:
+            - zookeeper
+        volumes:
+            - kafka1_data:/var/lib/kafka/data
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    kafka2:
+        image: confluentinc/cp-kafka:7.8.0
+        environment:
+            KAFKA_BROKER_ID: 2
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+        depends_on:
+            - zookeeper
+        volumes:
+            - kafka2_data:/var/lib/kafka/data
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    kafka3:
+        image: confluentinc/cp-kafka:7.8.0
+        environment:
+            KAFKA_BROKER_ID: 3
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+        depends_on:
+            - zookeeper
+        volumes:
+            - kafka3_data:/var/lib/kafka/data
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "2"
+                    memory: 4G
+
+    zookeeper:
+        image: confluentinc/cp-zookeeper:7.8.0
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+        networks:
+            - todo_net
+        deploy:
+            resources:
+                limits:
+                    cpus: "1"
+                    memory: 1G
+
+networks:
+    todo_net:
+        driver: bridge
+
+volumes:
+    mongo1_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/mongo1
+    mongo2_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/mongo2
+    mongo3_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/mongo3
+    redis_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/redis
+
+    kafka1_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/kafka1
+    kafka2_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/kafka2
+    kafka3_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ./data/kafka3
