@@ -25,7 +25,7 @@ export const dbConfig: DatabaseConfig = {
 	},
 };
 
-export const connectDatabase = async (): Promise<void> => {
+export const connectDB = async (): Promise<void> => {
 	try {
 		await mongoose.connect(dbConfig.uri, dbConfig.options);
 		logger.info("Successfully connected to MongoDB");
