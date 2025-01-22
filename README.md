@@ -250,7 +250,6 @@ todo-api/
 │   └── index.ts           # Application entry point
 ├── tests/                 # Test files
 │   ├── integration/       # Integration tests
-│   │   └── todo.test.ts
 │   └── unit/             # Unit tests
 │       └── todo.service.test.ts
 ├── docker-compose.yml     # Docker compose configuration
@@ -288,4 +287,28 @@ docker-compose logs -f
 3. Restart services:
 ```bash
 docker-compose restart
+```
+
+## Running Tests
+
+The app contains two test files `integration` and `unit` tests, located under the test folders.
+The following commands can be used:
+
+1. Run tests
+```bash
+npm run test
+```
+
+2. Run tests with --watch
+```bash
+npm run test:watch
+OR
+npm run test --watch
+```
+
+3. Run tests with --coverage
+```bash
+npm run test:coverage  
+OR
+npm run test --coverage
 ```

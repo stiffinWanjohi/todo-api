@@ -1,13 +1,14 @@
-import Redis, { Redis as RedisType } from "ioredis";
+import Redis, { Redis as RedisType, RedisOptions } from "ioredis";
 import { logger } from "../utils/logger";
 
-export interface RedisConfig {
+export interface RedisConfig extends Partial<RedisOptions> {
 	host: string;
 	port: number;
 	password?: string;
 	db?: number;
 	maxRetriesPerRequest?: number;
 	enableReadyCheck?: boolean;
+	lazyConnect?: boolean;
 	showFriendlyErrorStack?: boolean;
 }
 
@@ -18,6 +19,7 @@ const redisConfig: RedisConfig = {
 	db: 0,
 	maxRetriesPerRequest: 3,
 	enableReadyCheck: true,
+	lazyConnect: true,
 	showFriendlyErrorStack: process.env.NODE_ENV !== "production",
 };
 
@@ -31,13 +33,13 @@ export class RedisClient {
 		return delay;
 	};
 
-	// Ensure the instance is only created once and lazily
-	public static getInstance(): RedisType {
+	public static getInstance(config?: RedisConfig, retryStrategy?: number): RedisType {
 		if (!RedisClient.instance) {
 			RedisClient.instance = new Redis({
-				...redisConfig,
-				retryStrategy: RedisClient.retryStrategy,
-				lazyConnect: true, // Ensures connection happens only when needed
+				...(config || redisConfig),
+				retryStrategy: retryStrategy !== undefined
+					? (times: number) => Math.min(times * retryStrategy, 2000)
+					: RedisClient.retryStrategy,
 			});
 
 			RedisClient.instance.on("error", error => {

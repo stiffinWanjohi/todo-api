@@ -1,4 +1,4 @@
-import { Kafka, Producer, Consumer, SASLOptions } from "kafkajs";
+import { Kafka, Partitioners, Producer, Consumer, SASLOptions } from "kafkajs";
 import { logger } from "../utils/logger";
 
 export interface KafkaClientConfig {
@@ -6,6 +6,7 @@ export interface KafkaClientConfig {
 	brokers: string[];
 	ssl?: boolean;
 	sasl?: SASLOptions;
+	producer?: {};
 }
 
 const kafkaConfig: KafkaClientConfig = {
@@ -17,6 +18,9 @@ const kafkaConfig: KafkaClientConfig = {
 			mechanism: "plain" as const,
 			username: process.env.KAFKA_USERNAME || "",
 			password: process.env.KAFKA_PASSWORD || "",
+		},
+		producer: {
+			createPartitioner: Partitioners.LegacyPartitioner,
 		},
 	}),
 };
