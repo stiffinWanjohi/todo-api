@@ -1,5 +1,5 @@
 import { Kafka, Producer, Consumer, SASLOptions } from "kafkajs";
-import { logger } from "@/utils/logger";
+import { logger } from "../utils/logger";
 
 export interface KafkaClientConfig {
 	clientId: string;
@@ -10,7 +10,7 @@ export interface KafkaClientConfig {
 
 const kafkaConfig: KafkaClientConfig = {
 	clientId: process.env.KAFKA_CLIENT_ID || "todo-api",
-	brokers: (process.env.KAFKA_BROKERS || "localhost:9092").split(","),
+	brokers: (process.env.KAFKA_BROKER || "localhost:9092").split(","),
 	...(process.env.KAFKA_SSL === "true" && {
 		ssl: true,
 		sasl: {

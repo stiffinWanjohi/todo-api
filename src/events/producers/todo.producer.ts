@@ -1,31 +1,33 @@
 import { Message, Producer } from "kafkajs";
-import { logger } from "@/utils/logger";
-import { KafkaClient } from "@/config/kafka";
-import { ITodo } from "@/interfaces/todo.interface";
+import { logger } from "../../utils/logger";
+import { KafkaClient } from "../../config/kafka";
+import { ITodo } from "../../interfaces/todo.interface";
 
 export class TodoProducer {
-	private producer: Producer | undefined;
-	private static instance: TodoProducer;
+	private producer: Producer | null = null;
+	private static instance: TodoProducer | null = null;
 	private readonly TODO_TOPIC = "todo-events";
+	private initialized = false;
 
-	private constructor() {
-		this.initialize();
-	}
-
-	private async initialize(): Promise<void> {
-		try {
-			this.producer = await KafkaClient.getProducer();
-		} catch (error) {
-			logger.error("Failed to initialize producer:", error);
-			throw error;
-		}
-	}
+	private constructor() {}
 
 	public static getInstance(): TodoProducer {
 		if (!TodoProducer.instance) {
 			TodoProducer.instance = new TodoProducer();
 		}
 		return TodoProducer.instance;
+	}
+
+	private async ensureInitialized(): Promise<void> {
+		if (!this.initialized) {
+			try {
+				this.producer = await KafkaClient.getProducer();
+				this.initialized = true;
+			} catch (error) {
+				logger.error("Failed to initialize producer:", error);
+				throw error;
+			}
+		}
 	}
 
 	private ensureProducer(): Producer {
@@ -38,6 +40,8 @@ export class TodoProducer {
 	async disconnect(): Promise<void> {
 		try {
 			await KafkaClient.disconnect();
+			this.producer = null;
+			this.initialized = false;
 			logger.info("Successfully disconnected from Kafka producer");
 		} catch (error) {
 			logger.error("Failed to disconnect from Kafka producer:", error);
@@ -49,6 +53,8 @@ export class TodoProducer {
 		eventType: "created" | "updated" | "deleted",
 		todo: ITodo,
 	): Promise<void> {
+		await this.ensureInitialized();
+
 		if (!todo._id) {
 			throw new Error("Todo must have an _id");
 		}
@@ -87,6 +93,7 @@ export class TodoProducer {
 			todo: ITodo;
 		}>,
 	): Promise<void> {
+		await this.ensureInitialized();
 		const producer = this.ensureProducer();
 
 		const invalidTodos = events.filter(event => !event.todo._id);

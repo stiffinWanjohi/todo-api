@@ -2,19 +2,19 @@ import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import { connectDB } from "@/config/database";
-import { errorHandler, notFoundHandler } from "@/middleware/error.middleware";
-import { createRoutes } from "@/routes";
-import { logger } from "@/utils/logger";
+import { connectDB } from "./config/database";
+import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
+import { createRoutes } from "./routes";
+import { logger } from "./utils/logger";
+import mongoose from "mongoose";
 
 export class App {
 	private readonly app: Application;
+	private db: mongoose.Connection | null = null;
 
 	constructor() {
 		this.app = express();
 		this.setupMiddlewares();
-		this.setupRoutes();
-		this.setupErrorHandling();
 	}
 
 	private setupMiddlewares(): void {
@@ -40,8 +40,11 @@ export class App {
 	}
 
 	private setupRoutes(): void {
-		// Mount all routes
-		this.app.use(createRoutes());
+		if (!this.db) {
+			throw new Error("Database connection not initialized");
+		}
+		// Mount all routes with db connection
+		this.app.use(createRoutes(this.db));
 	}
 
 	private setupErrorHandling(): void {
@@ -56,6 +59,15 @@ export class App {
 		try {
 			// Connect to MongoDB using the connectDatabase function
 			await connectDB();
+
+			// Store the database connection
+			this.db = mongoose.connection;
+
+			// Setup routes after db connection is established
+			this.setupRoutes();
+
+			// Setup error handling after routes
+			this.setupErrorHandling();
 
 			// Start server
 			this.app.listen(port, () => {

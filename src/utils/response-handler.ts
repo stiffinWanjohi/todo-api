@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { HttpStatus } from "./error-codes";
-import { IApiResponse } from "@/interfaces/response.interface";
+import { IApiResponse } from "../interfaces/response.interface";
 
 export class ResponseHandler {
 	static success<T>(

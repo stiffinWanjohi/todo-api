@@ -1,35 +1,28 @@
 import mongoose from "mongoose";
-import { logger } from "@/utils/logger";
+import { logger } from "../utils/logger";
 
-export interface DatabaseConfig {
-	uri: string;
-	options: mongoose.ConnectOptions;
-}
+const MONGODB_URI =
+	process.env.MONGODB_URI ||
+	"mongodb://localhost:27017/todo_app?replicaSet=rs0&readPreference=primary";
 
-const defaultOptions: mongoose.ConnectOptions = {
-	maxPoolSize: 100,
-	minPoolSize: 10,
-	socketTimeoutMS: 45000,
-	serverSelectionTimeoutMS: 5000,
-	heartbeatFrequencyMS: 10000,
-	retryWrites: true,
-	w: "majority",
-	readPreference: "secondaryPreferred",
-};
-
-export const dbConfig: DatabaseConfig = {
-	uri: process.env.MONGODB_URI || "mongodb://localhost:27017/todo_app",
-	options: {
-		...defaultOptions,
-		replicaSet: process.env.MONGODB_REPLICASET || "rs0",
-	},
-};
-
-export const connectDB = async (): Promise<void> => {
+export const connectDB = async (): Promise<typeof mongoose> => {
 	try {
-		await mongoose.connect(dbConfig.uri, dbConfig.options);
-		logger.info("Successfully connected to MongoDB");
+		mongoose.set("strictQuery", true);
 
+		// Connect to MongoDB
+		const connection = await mongoose.connect(MONGODB_URI, {
+			minPoolSize: 10,
+			maxPoolSize: 100,
+			socketTimeoutMS: 60000,
+			connectTimeoutMS: 60000,
+			serverSelectionTimeoutMS: 30000,
+			heartbeatFrequencyMS: 10000,
+			retryWrites: true,
+		});
+
+		logger.info("MongoDB connected successfully");
+
+		// Handle connection events
 		mongoose.connection.on("error", error => {
 			logger.error("MongoDB connection error:", error);
 		});
@@ -41,8 +34,38 @@ export const connectDB = async (): Promise<void> => {
 		mongoose.connection.on("reconnected", () => {
 			logger.info("MongoDB reconnected");
 		});
+
+		// Handle process termination
+		process.on("SIGINT", async () => {
+			try {
+				await mongoose.connection.close();
+				logger.info(
+					"MongoDB connection closed through app termination",
+				);
+				process.exit(0);
+			} catch (error) {
+				logger.error("Error closing MongoDB connection:", error);
+				process.exit(1);
+			}
+		});
+
+		return connection;
 	} catch (error) {
 		logger.error("Error connecting to MongoDB:", error);
-		process.exit(1);
+		throw error;
 	}
+};
+
+export const closeDB = async (): Promise<void> => {
+	try {
+		await mongoose.connection.close();
+		logger.info("MongoDB connection closed");
+	} catch (error) {
+		logger.error("Error closing MongoDB connection:", error);
+		throw error;
+	}
+};
+
+export const checkConnection = (): boolean => {
+	return mongoose.connection.readyState === 1;
 };

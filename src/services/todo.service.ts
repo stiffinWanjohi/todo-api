@@ -1,17 +1,17 @@
 import { ClientSession, SortOrder } from "mongoose";
-import { TodoModel } from "@/models/todo.model";
+import { TodoModel } from "../models/todo.model";
 import {
 	ITodo,
 	ITodoCreate,
 	ITodoUpdate,
 	ITodoQuery,
 	TodoStatus,
-} from "@/interfaces/todo.interface";
-import { IPaginatedResponse } from "@/interfaces/response.interface";
-import { RedisClient } from "@/config/redis";
-import { KafkaClient } from "@/config/kafka";
-import { logger } from "@/utils/logger";
-import { AppError, ErrorCodes, HttpStatus } from "@/utils/error-codes";
+} from "../interfaces/todo.interface";
+import { IPaginatedResponse } from "../interfaces/response.interface";
+import { RedisClient } from "../config/redis";
+import { KafkaClient } from "../config/kafka";
+import { logger } from "../utils/logger";
+import { AppError, ErrorCodes, HttpStatus } from "../utils/error-codes";
 
 export class TodoService {
 	private readonly cacheClient = RedisClient.getInstance();
@@ -94,10 +94,10 @@ export class TodoService {
 		}
 	}
 
-	async create(data: ITodoCreate, session?: ClientSession): Promise<ITodo> {
+	async create(data: ITodoCreate, _session?: ClientSession): Promise<ITodo> {
 		try {
 			const todo = new TodoModel(data);
-			await todo.save({ session });
+			await todo.save();
 
 			await this.publishEvent("TODO_CREATED", todo);
 			await this.cacheSet(this.getCacheKey(todo._id), todo.toJSON());
@@ -137,7 +137,7 @@ export class TodoService {
 	async update(
 		id: string,
 		data: ITodoUpdate,
-		session?: ClientSession,
+		_session?: ClientSession,
 	): Promise<ITodo> {
 		const todo = await TodoModel.findOneAndUpdate(
 			{
@@ -154,7 +154,6 @@ export class TodoService {
 			},
 			{
 				new: true,
-				session,
 				runValidators: true,
 			},
 		);
@@ -173,11 +172,10 @@ export class TodoService {
 		return todo;
 	}
 
-	async delete(id: string, session?: ClientSession): Promise<void> {
+	async delete(id: string, _session?: ClientSession): Promise<void> {
 		const todo = await TodoModel.findOneAndUpdate(
 			{ _id: id, isDeleted: false },
 			{ isDeleted: true },
-			{ session },
 		);
 
 		if (!todo) {
@@ -192,11 +190,10 @@ export class TodoService {
 		await this.cacheDelete(this.getCacheKey(id));
 	}
 
-	async restore(id: string, session?: ClientSession): Promise<void> {
+	async restore(id: string, _session?: ClientSession): Promise<void> {
 		const todo = await TodoModel.findOneAndUpdate(
 			{ _id: id, isDeleted: true },
 			{ isDeleted: false },
-			{ session, new: true },
 		);
 
 		if (!todo) {
@@ -276,13 +273,12 @@ export class TodoService {
 	async bulkUpdate(
 		ids: string[],
 		update: Partial<ITodo>,
-		session?: ClientSession,
+		_session?: ClientSession,
 	): Promise<number> {
 		try {
 			const result = await TodoModel.updateMany(
 				{ _id: { $in: ids }, isDeleted: false },
 				update,
-				{ session },
 			);
 
 			// Invalidate cache for all updated todos

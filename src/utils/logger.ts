@@ -43,7 +43,6 @@ const logger = winston.createLogger({
 	],
 });
 
-// Add console transport in development
 if (process.env.NODE_ENV !== "production") {
 	logger.add(
 		new winston.transports.Console({
@@ -53,12 +52,15 @@ if (process.env.NODE_ENV !== "production") {
 			),
 		}),
 	);
-}
-
-// we can use this to add more transports (e.g., send logs to a remote service)
-if (process.env.NODE_ENV === "production") {
+} else {
 	// Example: Sending logs to an external service in production (e.g., Sentry, Loggly, etc.)
 	// logger.add(new SomeExternalTransport({ ... }));
+}
+
+if (process.env.NODE_ENV === "test") {
+	logger.transports.forEach(transport => {
+		transport.silent = true;
+	});
 }
 
 export { logger };

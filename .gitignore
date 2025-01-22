@@ -2,4 +2,8 @@ node_modules/
 .env
 *.log
 coverage/
+dist/
+data/
+logs/
 .DS_Store
+package-lock.json

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { ITodo, TodoStatus, TodoPriority } from "@/interfaces/todo.interface";
+import { ITodo, TodoStatus, TodoPriority } from "../interfaces/todo.interface";
 
 export interface ITodoDocument extends ITodo, Document {
 	_id: string;
@@ -71,7 +71,7 @@ const TodoSchema: Schema = new Schema(
 	},
 	{
 		timestamps: true,
-		versionKey: false,
+		versionKey: "__v",
 		optimisticConcurrency: true,
 	},
 );

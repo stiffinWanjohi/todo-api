@@ -13,6 +13,9 @@ RUN npm ci
 # Copy source code
 COPY src/ ./src/
 
+# Remove existing dist folder (if any)
+RUN rm -rf dist
+
 # Build the application
 RUN npm run build
 

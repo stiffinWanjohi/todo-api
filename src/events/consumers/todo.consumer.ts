@@ -1,9 +1,9 @@
 import { Consumer, EachMessagePayload } from "kafkajs";
 import { Redis } from "ioredis";
-import { logger } from "@/utils/logger";
-import { KafkaClient } from "@/config/kafka";
-import { RedisClient } from "@/config/redis";
-import { ITodo } from "@/interfaces/todo.interface";
+import { logger } from "../../utils/logger";
+import { KafkaClient } from "../../config/kafka";
+import { RedisClient } from "../../config/redis";
+import { ITodo } from "../../interfaces/todo.interface";
 
 export class TodoConsumer {
 	private consumer: Consumer | undefined;
@@ -13,17 +13,18 @@ export class TodoConsumer {
 	private readonly CONSUMER_GROUP = "todo-service-group";
 
 	private constructor() {
-		this.initialize();
+		this.init();
 	}
 
-	private async initialize(): Promise<void> {
+	private async init(): Promise<void> {
 		this.consumer = await KafkaClient.getConsumer(this.CONSUMER_GROUP);
 		this.redis = RedisClient.getInstance();
 	}
 
-	public static getInstance(): TodoConsumer {
+	public static async getInstance(): Promise<TodoConsumer> {
 		if (!TodoConsumer.instance) {
 			TodoConsumer.instance = new TodoConsumer();
+			await TodoConsumer.instance.init();
 		}
 		return TodoConsumer.instance;
 	}

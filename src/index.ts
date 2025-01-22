@@ -1,6 +1,6 @@
 import "dotenv/config";
 import app from "./app";
-import { logger } from "@/utils/logger";
+import { logger } from "./utils/logger";
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error: Error) => {

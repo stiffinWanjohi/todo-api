@@ -7,31 +7,65 @@ import {
 	TodoStatus,
 } from "../../src/interfaces/todo.interface";
 
-// Mock KafkaClient and its methods
-jest.mock("../src/config/kafka", () => ({
+jest.mock("../../src/config/kafka", () => ({
 	KafkaClient: {
 		getProducer: jest.fn(),
 		disconnect: jest.fn(),
 	},
 }));
 
+jest.mock("kafkajs", () => {
+	return {
+		Kafka: jest.fn().mockImplementation(() => ({
+			producer: jest.fn().mockImplementation(() => ({
+				connect: jest.fn().mockResolvedValue(true),
+				send: jest.fn().mockResolvedValue(true),
+				disconnect: jest.fn().mockResolvedValue(true),
+			})),
+		})),
+	};
+});
+
 describe("TodoProducer", () => {
 	let mockKafkaProducer: jest.Mocked<Producer>;
+	const testDate = new Date("2025-01-21T22:20:20.642Z");
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		(TodoProducer as any).instance = null;
 
 		mockKafkaProducer = {
-			send: jest.fn(),
-			sendBatch: jest.fn(),
-			connect: jest.fn(),
-			disconnect: jest.fn(),
+			send: jest.fn().mockResolvedValue(undefined),
+			sendBatch: jest.fn().mockResolvedValue(undefined),
+			connect: jest.fn().mockResolvedValue(undefined),
+			disconnect: jest.fn().mockResolvedValue(undefined),
 		} as unknown as jest.Mocked<Producer>;
 
 		(KafkaClient.getProducer as jest.Mock).mockResolvedValue(
 			mockKafkaProducer,
 		);
+		(KafkaClient.disconnect as jest.Mock).mockResolvedValue(undefined);
 	});
+
+	afterAll(async () => {
+		await mockKafkaProducer.disconnect();
+	});
+
+	const mockTodo: ITodo = {
+		_id: "123",
+		title: "Test Todo",
+		description: "Test Description",
+		status: TodoStatus.PENDING,
+		priority: TodoPriority.MEDIUM,
+		createdAt: testDate,
+		updatedAt: testDate,
+		createdBy: "user123",
+		assignedTo: "user456",
+		version: 1,
+		dueDate: testDate,
+		tags: ["test"],
+		isDeleted: false,
+	};
 
 	describe("Singleton Pattern", () => {
 		it("should create only one instance of TodoProducer", () => {
@@ -40,29 +74,21 @@ describe("TodoProducer", () => {
 			expect(instance1).toBe(instance2);
 		});
 
-		it("should initialize producer on first getInstance call", async () => {
-			TodoProducer.getInstance();
+		it("should initialize producer on first operation", async () => {
+			const producer = TodoProducer.getInstance();
+			await producer.sendTodoEvent("created", mockTodo);
+			expect(KafkaClient.getProducer).toHaveBeenCalledTimes(1);
+		});
+
+		it("should reuse producer for subsequent operations", async () => {
+			const producer = TodoProducer.getInstance();
+			await producer.sendTodoEvent("created", mockTodo);
+			await producer.sendTodoEvent("updated", mockTodo);
 			expect(KafkaClient.getProducer).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	describe("sendTodoEvent", () => {
-		const mockTodo: ITodo = {
-			_id: "123",
-			title: "Test Todo",
-			description: "Test Description",
-			status: TodoStatus.PENDING,
-			priority: TodoPriority.MEDIUM,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			createdBy: "user123",
-			assignedTo: "user456",
-			version: 1,
-			dueDate: new Date(),
-			tags: ["test"],
-			isDeleted: false,
-		};
-
 		it("should successfully send a single todo event", async () => {
 			const producer = TodoProducer.getInstance();
 			await producer.sendTodoEvent("created", mockTodo);
@@ -81,9 +107,18 @@ describe("TodoProducer", () => {
 				(mockKafkaProducer.send as jest.Mock).mock.calls[0][0]
 					.messages[0].value,
 			);
+
+			// Create expected to-do with stringified dates
+			const expectedTodo = {
+				...mockTodo,
+				createdAt: mockTodo.createdAt?.toISOString(),
+				updatedAt: mockTodo.updatedAt?.toISOString(),
+				dueDate: mockTodo.dueDate?.toISOString(),
+			};
+
 			expect(sentMessage).toEqual({
 				eventType: "created",
-				todo: mockTodo,
+				todo: expectedTodo,
 				timestamp: expect.any(String),
 			});
 		});
@@ -110,44 +145,21 @@ describe("TodoProducer", () => {
 	});
 
 	describe("sendBatchTodoEvents", () => {
-		const mockTodos: Array<{
-			eventType: "created" | "updated" | "deleted";
-			todo: ITodo;
-		}> = [
+		const mockTodos = [
 			{
-				eventType: "created",
+				eventType: "created" as const,
 				todo: {
+					...mockTodo,
 					_id: "123",
 					title: "Todo 1",
-					description: "Description 1",
-					status: TodoStatus.PENDING,
-					priority: TodoPriority.MEDIUM,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-					createdBy: "user123",
-					assignedTo: "user456",
-					version: 1,
-					dueDate: new Date(),
-					tags: ["test"],
-					isDeleted: false,
 				},
 			},
 			{
-				eventType: "updated",
+				eventType: "updated" as const,
 				todo: {
+					...mockTodo,
 					_id: "456",
 					title: "Todo 2",
-					description: "Description 2",
-					status: TodoStatus.COMPLETED,
-					priority: TodoPriority.HIGH,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-					createdBy: "user789",
-					assignedTo: "user012",
-					version: 2,
-					dueDate: new Date(),
-					tags: ["test"],
-					isDeleted: false,
 				},
 			},
 		];
@@ -171,6 +183,28 @@ describe("TodoProducer", () => {
 				timeout: 30000,
 				compression: 2,
 			});
+
+			const sentBatch = (mockKafkaProducer.sendBatch as jest.Mock).mock
+				.calls[0][0];
+			const messages = sentBatch.topicMessages[0].messages;
+			expect(messages.length).toBe(2);
+
+			messages.forEach((msg: any, index: number) => {
+				const parsedValue = JSON.parse(msg.value);
+				// Create expected to-do with stringified dates
+				const expectedTodo = {
+					...mockTodos[index].todo,
+					createdAt: testDate.toISOString(),
+					updatedAt: testDate.toISOString(),
+					dueDate: testDate.toISOString(),
+				};
+
+				expect(parsedValue).toEqual({
+					eventType: mockTodos[index].eventType,
+					todo: expectedTodo,
+					timestamp: expect.any(String),
+				});
+			});
 		});
 
 		it("should throw error when any todo in batch has no _id", async () => {
@@ -179,7 +213,7 @@ describe("TodoProducer", () => {
 				...mockTodos,
 				{
 					eventType: "created" as const,
-					todo: { ...mockTodos[0].todo, _id: undefined },
+					todo: { ...mockTodo, _id: undefined },
 				},
 			];
 
@@ -217,6 +251,15 @@ describe("TodoProducer", () => {
 			await expect(producer.disconnect()).rejects.toThrow(
 				"Disconnect failed",
 			);
+		});
+
+		it("should allow reconnection after disconnect", async () => {
+			const producer = TodoProducer.getInstance();
+			await producer.sendTodoEvent("created", mockTodo);
+			await producer.disconnect();
+			await producer.sendTodoEvent("updated", mockTodo);
+
+			expect(KafkaClient.getProducer).toHaveBeenCalledTimes(2);
 		});
 	});
 });

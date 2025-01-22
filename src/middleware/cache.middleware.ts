@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { RedisClient } from "@/config/redis";
-import { logger } from "@/utils/logger";
-import { ICacheConfig } from "@/interfaces/response.interface";
+import { RedisClient } from "../config/redis";
+import { logger } from "../utils/logger";
+import { ICacheConfig } from "../interfaces/response.interface";
 
 export class CacheMiddleware {
 	private static readonly redis = RedisClient.getInstance();

@@ -1,6 +1,5 @@
-import { Response, NextFunction } from "express";
-import { CustomRequest } from "@/types/custom-types";
-import { TodoService } from "@/services/todo.service";
+import { Request, Response, NextFunction } from "express";
+import { TodoService } from "../services/todo.service";
 import {
 	ITodoCreate,
 	ITodoUpdate,
@@ -8,17 +7,20 @@ import {
 	TodoStatus,
 	TodoPriority,
 	ITodo,
-} from "@/interfaces/todo.interface";
-import { ResponseHandler, wrapAsync } from "@/utils/response-handler";
-import { logger } from "@/utils/logger";
-import { AppError, ErrorCodes, HttpStatus } from "@/utils/error-codes";
-import { CacheMiddleware } from "@/middleware/cache.middleware";
+} from "../interfaces/todo.interface";
+import { ResponseHandler, wrapAsync } from "../utils/response-handler";
+import { logger } from "../utils/logger";
+import { AppError, ErrorCodes, HttpStatus } from "../utils/error-codes";
+import { CacheMiddleware } from "../middleware/cache.middleware";
+import mongoose from "mongoose";
 
 export class TodoController {
 	private todoService: TodoService;
+	private db: mongoose.Connection;
 
-	constructor() {
+	constructor(db: mongoose.Connection) {
 		this.todoService = new TodoService();
+		this.db = db;
 	}
 
 	private validateDates(startDate?: string, endDate?: string): void {
@@ -71,7 +73,7 @@ export class TodoController {
 
 	queryTodos = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
@@ -124,28 +126,36 @@ export class TodoController {
 
 	getTodoById = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
 			const { id } = req.params;
-			const todo = await this.todoService.findById(id);
-			ResponseHandler.success(res, todo);
+			try {
+				const todo = await this.todoService.findById(id);
+				ResponseHandler.success(res, todo);
+			} catch (error) {
+				if (error instanceof AppError) {
+					throw error;
+				}
+				throw new AppError(
+					ErrorCodes.RESOURCE_NOT_FOUND,
+					HttpStatus.NOT_FOUND,
+					"Todo not found",
+				);
+			}
 		},
 	);
 
 	createTodo = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
-			const todoData: ITodoCreate = {
-				...req.body,
-				createdBy: req.user?.id,
-			};
+			const todoData: ITodoCreate = { ...req.body };
 
-			const session = await req.db.startSession();
+			const session = await this.db.startSession();
 			let todo: ITodo | undefined;
 
 			try {
@@ -161,7 +171,6 @@ export class TodoController {
 					);
 				}
 
-				// Invalidate cache after creating new to-do
 				await CacheMiddleware.invalidateCache(["todos"]);
 
 				logger.info("Todo created successfully", { todoId: todo._id });
@@ -174,14 +183,14 @@ export class TodoController {
 
 	updateTodo = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
 			const { id } = req.params;
 			const updateData: ITodoUpdate = req.body;
 
-			const session = await req.db.startSession();
+			const session = await this.db.startSession();
 			try {
 				await session.withTransaction(async () => {
 					const updatedTodo = await this.todoService.update(
@@ -190,8 +199,10 @@ export class TodoController {
 						session,
 					);
 
-					// Invalidate both specific to-do and list caches
-					await CacheMiddleware.invalidateCache(["todos", "todo"]);
+					await CacheMiddleware.invalidateCache([
+						"todos",
+						`todo:${id}`,
+					]);
 
 					ResponseHandler.success(res, updatedTodo);
 				});
@@ -203,21 +214,24 @@ export class TodoController {
 
 	deleteTodo = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
 			const { id } = req.params;
-			const session = await req.db.startSession();
+			const session = await this.db.startSession();
 
 			try {
 				await session.withTransaction(async () => {
 					await this.todoService.delete(id, session);
+					await CacheMiddleware.invalidateCache([
+						"todos",
+						`todo:${id}`,
+					]);
 
-					// Invalidate both specific todo and list caches
-					await CacheMiddleware.invalidateCache(["todos", "todo"]);
-
-					ResponseHandler.noContent(res);
+					ResponseHandler.success(res, {
+						message: "Todo deleted successfully",
+					});
 				});
 			} finally {
 				await session.endSession();
@@ -227,13 +241,13 @@ export class TodoController {
 
 	bulkUpdateTodos = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
 			const { ids, update } = req.body;
 
-			const session = await req.db.startSession();
+			const session = await this.db.startSession();
 			try {
 				await session.withTransaction(async () => {
 					const updatedCount = await this.todoService.bulkUpdate(
@@ -242,8 +256,10 @@ export class TodoController {
 						session,
 					);
 
-					// Invalidate both specific todo and list caches
-					await CacheMiddleware.invalidateCache(["todos", "todo"]);
+					await CacheMiddleware.invalidateCache([
+						"todos",
+						...ids.map((id: any) => `todo:${id}`),
+					]);
 
 					ResponseHandler.success(res, { updatedCount });
 				});
@@ -255,23 +271,45 @@ export class TodoController {
 
 	restoreTodo = wrapAsync(
 		async (
-			req: CustomRequest,
+			req: Request,
 			res: Response,
 			_next: NextFunction,
 		): Promise<void> => {
 			const { id } = req.params;
-			const session = await req.db.startSession();
+			const session = await this.db.startSession();
 
 			try {
 				await session.withTransaction(async () => {
 					await this.todoService.restore(id, session);
-
-					// Invalidate both specific todo and list caches
-					await CacheMiddleware.invalidateCache(["todos", "todo"]);
-
+					await CacheMiddleware.invalidateCache([
+						"todos",
+						`todo:${id}`,
+					]);
 					ResponseHandler.success(res, {
 						message: "Todo restored successfully",
 					});
+				});
+			} finally {
+				await session.endSession();
+			}
+		},
+	);
+
+	getStatistics = wrapAsync(
+		async (
+			_req: Request,
+			res: Response,
+			_next: NextFunction,
+		): Promise<void> => {
+			const session = await this.db.startSession();
+
+			try {
+				await session.withTransaction(async () => {
+					const statistics = await this.todoService.getStatistics();
+
+					await CacheMiddleware.invalidateCache(["todoStatistics"]);
+
+					ResponseHandler.success(res, statistics);
 				});
 			} finally {
 				await session.endSession();

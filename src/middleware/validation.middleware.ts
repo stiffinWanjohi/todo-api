@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import Joi from "joi";
-import { Errors } from "@/utils/error-codes";
-import { TodoStatus, TodoPriority } from "@/interfaces/todo.interface";
+import { Errors } from "../utils/error-codes";
+import { TodoStatus, TodoPriority } from "../interfaces/todo.interface";
 
 const todoSchema = {
 	create: Joi.object({
@@ -12,6 +12,7 @@ const todoSchema = {
 		dueDate: Joi.date().iso().optional(),
 		tags: Joi.array().items(Joi.string()).optional(),
 		assignedTo: Joi.string().optional(),
+		createdBy: Joi.string().required(),
 	}),
 
 	update: Joi.object({

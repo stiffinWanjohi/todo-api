@@ -1,10 +1,21 @@
 import express, { Router } from "express";
-import { TodoController } from "@/controllers/todo.controller";
-import { CacheMiddleware } from "@/middleware/cache.middleware";
-import { validate } from "@/middleware/validation.middleware";
+import { TodoController } from "../controllers/todo.controller";
+import { CacheMiddleware } from "../middleware/cache.middleware";
+import { validate } from "../middleware/validation.middleware";
 
 export const createTodoRouter = (todoController: TodoController): Router => {
 	const router = express.Router();
+
+	// GET route for statistics
+	router.get(
+		"/statistics",
+		CacheMiddleware.cache({
+			key: "todoStatistics",
+			ttl: 300,
+			tags: ["todoStatistics"],
+		}),
+		todoController.getStatistics,
+	);
 
 	// GET routes with caching
 	router.get(
