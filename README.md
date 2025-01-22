@@ -288,27 +288,3 @@ docker-compose logs -f
 ```bash
 docker-compose restart
 ```
-
-## Running Tests
-
-The app contains two test files `integration` and `unit` tests, located under the test folders.
-The following commands can be used:
-
-1. Run tests
-```bash
-npm run test
-```
-
-2. Run tests with --watch
-```bash
-npm run test:watch
-OR
-npm run test --watch
-```
-
-3. Run tests with --coverage
-```bash
-npm run test:coverage  
-OR
-npm run test --coverage
-```
