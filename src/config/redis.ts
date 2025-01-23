@@ -33,13 +33,18 @@ export class RedisClient {
 		return delay;
 	};
 
-	public static getInstance(config?: RedisConfig, retryStrategy?: number): RedisType {
+	public static getInstance(
+		config?: RedisConfig,
+		retryStrategy?: number,
+	): RedisType {
 		if (!RedisClient.instance) {
 			RedisClient.instance = new Redis({
 				...(config || redisConfig),
-				retryStrategy: retryStrategy !== undefined
-					? (times: number) => Math.min(times * retryStrategy, 2000)
-					: RedisClient.retryStrategy,
+				retryStrategy:
+					retryStrategy !== undefined
+						? (times: number) =>
+								Math.min(times * retryStrategy, 2000)
+						: RedisClient.retryStrategy,
 			});
 
 			RedisClient.instance.on("error", error => {

@@ -3,6 +3,7 @@
 A robust Todo API service built with Node.js, featuring MongoDB for storage, Redis for caching, and Kafka for event handling.
 
 ## Features
+
 - CRUD operations for todos
 - Status and priority management
 - Filtering and sorting capabilities
@@ -12,23 +13,27 @@ A robust Todo API service built with Node.js, featuring MongoDB for storage, Red
 - Optimistic concurrency control
 
 ## Prerequisites
+
 - Docker
 - Docker Compose
 
 ## Quick Start
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/stiffinWanjohi/todo-api.git
 cd todo-app
 ```
 
 2. Create environment file:
+
 ```bash
 cp .env.example .env
 ```
 
 3. Configure your `.env` file:
+
 ```env
 # General Application Configuration
 PORT=3000
@@ -56,6 +61,7 @@ REDIS_URI=redis://redis:6379
 ```
 
 4. Run the application:
+
 ```bash
 docker-compose up -d
 ```
@@ -65,6 +71,7 @@ The app will be available at `http://localhost:3000`
 ## API Documentation
 
 ### Query Todos
+
 Get a list of todos with optional filtering and sorting.
 
 ```bash
@@ -76,6 +83,7 @@ GET /api/v1/todos?status={status}&priority={priority}&page={page}&limit={limit}&
 ```
 
 Query Parameters:
+
 - `status`: PENDING, IN_PROGRESS, COMPLETED, ARCHIVED
 - `priority`: LOW, MEDIUM, HIGH, URGENT
 - `page`: Page number for pagination
@@ -89,11 +97,13 @@ Query Parameters:
 - `endDate`: ISO date string
 
 ### Get Single Todo
+
 ```bash
 GET /api/v1/todos/:id
 ```
 
 ### Create Todo
+
 ```bash
 POST /api/v1/todos
 Content-Type: application/json
@@ -111,6 +121,7 @@ Content-Type: application/json
 ```
 
 ### Update Todo
+
 ```bash
 PUT /api/v1/todos/:id
 Content-Type: application/json
@@ -124,11 +135,13 @@ Content-Type: application/json
 ```
 
 ### Delete Todo
+
 ```bash
 DELETE /api/v1/todos/:id
 ```
 
 ### Bulk Update Todos
+
 ```bash
 POST /api/v1/todos/bulk
 Content-Type: application/json
@@ -144,28 +157,32 @@ Content-Type: application/json
 ```
 
 ### Restore Todo
+
 ```bash
 POST /api/v1/todos/:id/restore
 ```
 
 ### Get Todo Statistics
+
 ```bash
 GET /api/v1/todos/statistics
 ```
 
 Response:
+
 ```json
 {
-    "totalTodos": 100,
-    "completedTodos": 45,
-    "pendingTodos": 30,
-    "inProgressTodos": 25,
-    "highPriorityTodos": 15,
-    "overdueTodos": 5
+	"totalTodos": 100,
+	"completedTodos": 45,
+	"pendingTodos": 30,
+	"inProgressTodos": 25,
+	"highPriorityTodos": 15,
+	"overdueTodos": 5
 }
 ```
 
 ### Health Check
+
 ```bash
 GET /health
 ```
@@ -173,46 +190,50 @@ GET /health
 ## Data Models
 
 ### Todo Status
+
 ```typescript
 enum TodoStatus {
-    PENDING = "PENDING",
-    IN_PROGRESS = "IN_PROGRESS",
-    COMPLETED = "COMPLETED",
-    ARCHIVED = "ARCHIVED"
+	PENDING = "PENDING",
+	IN_PROGRESS = "IN_PROGRESS",
+	COMPLETED = "COMPLETED",
+	ARCHIVED = "ARCHIVED",
 }
 ```
 
 ### Todo Priority
+
 ```typescript
 enum TodoPriority {
-    LOW = "LOW",
-    MEDIUM = "MEDIUM",
-    HIGH = "HIGH",
-    URGENT = "URGENT"
+	LOW = "LOW",
+	MEDIUM = "MEDIUM",
+	HIGH = "HIGH",
+	URGENT = "URGENT",
 }
 ```
 
 ### Todo Interface
+
 ```typescript
 interface ITodo {
-    _id?: string;
-    title: string;
-    description?: string;
-    status: TodoStatus;
-    priority: TodoPriority;
-    dueDate?: Date;
-    tags?: string[];
-    assignedTo?: string;
-    createdBy: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-    completedAt?: Date;
-    isDeleted?: boolean;
-    version?: number;
+	_id?: string;
+	title: string;
+	description?: string;
+	status: TodoStatus;
+	priority: TodoPriority;
+	dueDate?: Date;
+	tags?: string[];
+	assignedTo?: string;
+	createdBy: string;
+	createdAt?: Date;
+	updatedAt?: Date;
+	completedAt?: Date;
+	isDeleted?: boolean;
+	version?: number;
 }
 ```
 
 ## Project Structure
+
 ```
 todo-api/
 ├── docker/                     # Docker configuration files
@@ -262,11 +283,12 @@ todo-api/
 ## Error Handling
 
 The API returns standard HTTP status codes with error responses:
+
 ```json
 {
-    "error": "Error message",
-    "code": "ERROR_CODE",
-    "details": {}
+	"error": "Error message",
+	"code": "ERROR_CODE",
+	"details": {}
 }
 ```
 
@@ -275,16 +297,19 @@ The API returns standard HTTP status codes with error responses:
 If you encounter any issues:
 
 1. Check container status:
+
 ```bash
 docker ps
 ```
 
 2. View logs:
+
 ```bash
 docker-compose logs -f
 ```
 
 3. Restart services:
+
 ```bash
 docker-compose restart
 ```
