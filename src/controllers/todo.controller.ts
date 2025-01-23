@@ -154,7 +154,6 @@ export class TodoController {
 			_next: NextFunction,
 		): Promise<void> => {
 			const todoData: ITodoCreate = { ...req.body };
-
 			const session = await this.db.startSession();
 			let todo: ITodo | undefined;
 
@@ -162,6 +161,7 @@ export class TodoController {
 				await session.withTransaction(async () => {
 					todo = await this.todoService.create(todoData, session);
 				});
+				console.log(todo);
 
 				if (!todo) {
 					throw new AppError(

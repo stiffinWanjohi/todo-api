@@ -143,7 +143,7 @@ DELETE /api/v1/todos/:id
 ### Bulk Update Todos
 
 ```bash
-POST /api/v1/todos/bulk
+POST /api/v1/todos/bulk-update
 Content-Type: application/json
 
 {
@@ -271,6 +271,7 @@ todo-api/
 │   └── index.ts           # Application entry point
 ├── tests/                 # Test files
 │   ├── integration/       # Integration tests
+│       └── todo.test.ts
 │   └── unit/             # Unit tests
 │       └── todo.service.test.ts
 ├── docker-compose.yml     # Docker compose configuration
@@ -312,4 +313,39 @@ docker-compose logs -f
 
 ```bash
 docker-compose restart
+```
+
+## Running Tests
+Make sure that docker is up and running `docker compose up -d`
+
+The tests included are `unit` and `integration` tests
+
+To run tests, run the following command:
+
+```bash
+npm run test
+```
+
+### with --watch
+
+```bash
+npm run test:watch
+```
+
+OR 
+
+```bash
+npm run test --watch
+```
+
+### with --coverage
+
+```bash
+npm run test:coverage
+```
+
+OR
+
+```bash
+npm run test --coverage
 ```

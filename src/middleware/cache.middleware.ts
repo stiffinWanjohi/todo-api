@@ -15,43 +15,44 @@ export class CacheMiddleware {
 			if (req.method !== "GET") {
 				next();
 			}
-
+	
 			const cacheKey = this.generateCacheKey(config.key, req);
-
+	
 			try {
 				const cachedData = await this.redis.get(cacheKey);
-
+	
 				if (cachedData) {
 					const data = JSON.parse(cachedData);
 					res.json(data);
 				}
-
+	
 				// Store the original res.json function
 				const originalJson = res.json.bind(res);
-
+	
 				// Override res.json to cache the response
 				res.json = ((data: any): Response => {
+					// Restore original json function first
 					res.json = originalJson;
-
+	
+					// Cache the response
 					this.redis
 						.setex(cacheKey, config.ttl, JSON.stringify(data))
 						.catch(err => logger.error("Cache set error:", err));
-
+	
 					// If tags are provided, store the cache key with its tags
 					if (config.tags?.length) {
 						this.storeCacheKeyWithTags(cacheKey, config.tags).catch(
-							err =>
-								logger.error("Cache tag storage error:", err),
+							err => logger.error("Cache tag storage error:", err),
 						);
 					}
-
-					return res.json(data);
+	
+					return originalJson(data);
 				}) as any;
-
-				next();
+	
+				return next();
 			} catch (error) {
 				logger.error("Cache middleware error:", error);
-				next();
+				return next();
 			}
 		};
 	}

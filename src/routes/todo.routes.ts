@@ -49,7 +49,7 @@ export const createTodoRouter = (todoController: TodoController): Router => {
 
 	// Bulk update route
 	router.post(
-		"/bulk",
+		"/bulk-update",
 		validate("bulkUpdate"),
 		todoController.bulkUpdateTodos,
 	);

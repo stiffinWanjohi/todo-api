@@ -17,6 +17,10 @@ export class App {
 		this.setupMiddlewares();
 	}
 
+	public setDatabase(connection: mongoose.Connection): void {
+		this.db = connection;
+	}
+
 	private setupMiddlewares(): void {
 		// Security middlewares
 		this.app.use(helmet());
@@ -39,7 +43,7 @@ export class App {
 		});
 	}
 
-	private setupRoutes(): void {
+	public setupRoutes(): void {
 		if (!this.db) {
 			throw new Error("Database connection not initialized");
 		}
@@ -47,7 +51,7 @@ export class App {
 		this.app.use(createRoutes(this.db));
 	}
 
-	private setupErrorHandling(): void {
+	public setupErrorHandling(): void {
 		// Handle 404
 		this.app.use(notFoundHandler);
 
